@@ -179,7 +179,124 @@ def myAction01(priceMat, transFeeRate):
 
 # An approach that allow non-consecutive K days to hold all cash without any stocks
 def myAction02(priceMat, transFeeRate, K):
+    # default
+    initCash = 1000
+    # user definition
+    dayNum, stockNum = priceMat.shape  # day size & stock count
+    dp = np.zeros((K+1, dayNum, stockNum+1), dtype=float)
+    bt = np.zeros((K+1, dayNum, stockNum+1), dtype=int)
     actionMat = []  # An k-by-4 action matrix which holds k transaction records.
+
+    # init the dp and bt matrix
+    for cashDay in range(0, K+1):
+        day = cashDay
+        dayPrices = priceMat[day]  # Today price of each stock
+
+        for stock in range(0, stockNum):
+            dp[cashDay][day][stock] = initCash*(1-transFeeRate)/dayPrices[stock]
+            bt[cashDay][day][stock] = -1
+
+        dp[cashDay][day][stockNum] = initCash
+        bt[cashDay][day][stockNum] = -1
+
+    cashDay = 0
+    for day in range(1+cashDay, dayNum):
+        dp[cashDay][day][stockNum] = initCash
+        bt[cashDay][day][stockNum] = -1
+
+    # compute the dp and bt matrix
+    for cashDay in range(0, K+1):
+        for day in range(1+cashDay, dayNum):
+            dayPrices = priceMat[day]  # Today price of each stock
+
+            for cashTo in range(0, stockNum+1):
+                if cashDay == 0 and cashTo == stockNum:
+                    continue
+
+                for cashFrom in range(0, stockNum+1):
+                    if cashDay == 0 and cashFrom == stockNum:
+                        continue
+
+                    if cashTo == stockNum:
+                        cashOutValue = dp[cashDay-1][day-1][cashFrom]
+                    else:
+                        cashOutValue = dp[cashDay][day-1][cashFrom]
+
+                    if cashFrom != stockNum and cashFrom != cashTo:
+                        # sell stock
+                        cashOutValue = cashOutValue*dayPrices[cashFrom]*(1-transFeeRate)
+
+                    buyIn = cashOutValue
+
+                    if cashTo != stockNum and cashFrom != cashTo:
+                        # buy new stock
+                        buyIn = buyIn*(1-transFeeRate)/dayPrices[cashTo]
+
+                    if buyIn > dp[cashDay][day][cashTo]:
+                        dp[cashDay][day][cashTo] = buyIn
+                        bt[cashDay][day][cashTo] = cashFrom
+
+    # backtrace
+    holding = stockNum
+    cashDay = K
+
+    cashDaysTotal = 0
+    cashDaysCount = 0
+    cashDaysContinue = 0
+
+    for day in range(dayNum-1, -1, -1):
+        dayPrices = priceMat[day]  # Today price of each stock
+
+        sellStock = -1
+        buyStock = -1
+        transValue = 0
+
+        if holding == stockNum:
+            cashDaysTotal += 1
+            cashDaysCount += 1
+        else:
+            if cashDaysCount > cashDaysContinue:
+                cashDaysContinue = cashDaysCount
+            cashDaysCount = 0
+
+        prevHolding = bt[cashDay][day][holding]
+
+        if holding != stockNum and holding != prevHolding:
+            buyStock = holding
+            transValue = dp[cashDay][day][buyStock]*dayPrices[buyStock]/(1-transFeeRate)
+
+        if prevHolding != stockNum and holding != prevHolding and prevHolding != -1:
+            sellStock = prevHolding
+            if holding == stockNum:
+                transValue = dp[cashDay-1][day][sellStock]*dayPrices[sellStock]
+            else:
+                transValue = dp[cashDay][day][sellStock]*dayPrices[sellStock]
+
+        if sellStock != -1 or buyStock != -1:
+            actionMat.append([day, sellStock, buyStock, transValue])
+
+        if holding == stockNum:
+            cashDay -= 1
+
+        holding = prevHolding
+        if holding == -1:
+            cashDaysTotal += day
+            cashDaysCount += day
+            if cashDaysCount > cashDaysContinue:
+                cashDaysContinue = cashDaysCount
+            break
+
+    actionMat.reverse()
+
+    #for action in actionMat:
+    #    print(action)
+
+    #print("cashDay %d" % (cashDay))
+
+    #print('Submit: rr=%f%%' % ((actionMat[-1][3]-initCash)*100/initCash))
+    #print('Submit: Non continueous cash holding=%d' % (cashDaysTotal))
+    #print('Submit: Continueous cash holding=%d' %(cashDaysContinue))
+
     return actionMat
 
 # An approach that allow consecutive K days to hold all cash without any stocks    
