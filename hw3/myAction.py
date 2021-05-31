@@ -340,6 +340,84 @@ def myAction03BruteForce(priceMat, transFeeRate, K):
 
     return bestActionMat
 
+def myAction03ReturnRate(priceMat, transFeeRate, K):
+    # default
+    initCash = 1000.0
+    # user definition
+    dayNum, stockNum = priceMat.shape  # day size & stock count
+    dayValue = np.zeros((dayNum), dtype=float)
+    dayHolding = np.zeros((dayNum), dtype=int)
+    actionMat = []  # An k-by-4 action matrix which holds k transaction records.
+
+    actionOpti = myAction01(priceMat, transFeeRate)
+
+    for action in actionOpti:
+        day = action[0]
+        buyStock = action[2]
+        transValue = action[3]
+
+        dayValue[day] = transValue
+        dayHolding[day] = buyStock
+
+    for day in range(0, dayNum):
+        if dayValue[day] == 0.0:
+            if day == 0:
+                holding = -1
+                dayHolding[day] = holding
+                dayValue[day] = initCash
+            else:
+                holding = dayHolding[day-1]
+                dayHolding[day] = holding
+                if holding != -1:
+                    dayValue[day] = dayValue[day-1]*priceMat[day][holding]/priceMat[day-1][holding]
+                else:
+                    dayValue[day] = dayValue[day-1]
+
+    minDay = 0
+    minRR = (dayValue[minDay+K]-dayValue[minDay])/dayValue[minDay]
+
+    for day in range(1, dayNum):
+        if day+K >= dayNum:
+            break;
+
+        dayRR = (dayValue[day+K]-dayValue[day])/dayValue[day]
+        if dayRR < minRR:
+            minDay = day
+            minRR = dayRR
+
+    #print("minDay %d" % (minDay))
+
+    return minDay
+
 # An approach that allow consecutive K days to hold all cash without any stocks    
 def myAction03(priceMat, transFeeRate, K):
-    return myAction03BruteForce(priceMat, transFeeRate, K)
+    # user definition
+    dayNum, stockNum = priceMat.shape  # day size & stock count
+    searchRange = 10
+
+    minDay = myAction03ReturnRate(priceMat, transFeeRate, K)
+
+    start = minDay - searchRange
+    if start < 0:
+        start = 0;
+    end = minDay + searchRange
+    if end > dayNum:
+        end = dayNum;
+
+
+    bestActionMat = myActionForceCash(priceMat, transFeeRate, start, K)
+    bestStartDay = 0
+
+    for day in range(start+1, end):
+        if day+K >= dayNum:
+            break;
+
+        actionMat = myActionForceCash(priceMat, transFeeRate, day, K)
+
+        if actionMat[-1][3] > bestActionMat[-1][3]:
+            bestActionMat = actionMat
+            bestStartDay = day
+
+    #print("bestStartDay %d" % (bestStartDay))
+
+    return bestActionMat
