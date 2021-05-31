@@ -76,8 +76,10 @@ def myActionSimple(priceMat, transFeeRate):
                 actionMat.append( action )
     return actionMat
 
-# A DP-based approach to obtain the optimal return
-def myAction01(priceMat, transFeeRate):
+# A DP-based approach to obtain the optimal return which allows
+# consecutive 'cashDays' days to hold all cash without any stocks
+# starting from day 'cashStart'
+def myActionForceCash(priceMat, transFeeRate, cashStart, cashDays):
     # default
     initCash = 1000
     # user definition
@@ -102,22 +104,34 @@ def myAction01(priceMat, transFeeRate):
         dayPrices = priceMat[day]  # Today price of each stock
 
         for cashTo in range(0, stockNum+1):
-            for cashFrom in range(0, stockNum+1):
-                cashOutValue = dp[day-1][cashFrom]
+            if cashStart >= 0 and day >= cashStart and day < (cashStart+cashDays):
+                # forced to select cash today
+                buyIn = dp[day-1][stockNum]
 
-                if cashFrom != stockNum and cashFrom != cashTo:
-                    # sell stock
-                    cashOutValue = cashOutValue*dayPrices[cashFrom]*(1-transFeeRate)
-
-                buyIn = cashOutValue
-
-                if cashTo != stockNum and cashFrom != cashTo:
+                if cashTo != stockNum:
                     # buy new stock
                     buyIn = buyIn*(1-transFeeRate)/dayPrices[cashTo]
 
                 if buyIn > dp[day][cashTo]:
                     dp[day][cashTo] = buyIn
-                    bt[day][cashTo] = cashFrom
+                    bt[day][cashTo] = stockNum
+            else:
+                for cashFrom in range(0, stockNum+1):
+                    cashOutValue = dp[day-1][cashFrom]
+
+                    if cashFrom != stockNum and cashFrom != cashTo:
+                        # sell stock
+                        cashOutValue = cashOutValue*dayPrices[cashFrom]*(1-transFeeRate)
+
+                    buyIn = cashOutValue
+
+                    if cashTo != stockNum and cashFrom != cashTo:
+                        # buy new stock
+                        buyIn = buyIn*(1-transFeeRate)/dayPrices[cashTo]
+
+                    if buyIn > dp[day][cashTo]:
+                        dp[day][cashTo] = buyIn
+                        bt[day][cashTo] = cashFrom
 
     #for day in range(0, dayNum):
     #    print(dp[day])
@@ -176,6 +190,11 @@ def myAction01(priceMat, transFeeRate):
     #print('Submit: Continueous cash holding=%d' %(cashDaysContinue))
 
     return actionMat
+
+# A DP-based approach to obtain the optimal return
+def myAction01(priceMat, transFeeRate):
+    # no all-cash window needed
+    return myActionForceCash(priceMat, transFeeRate, -1, -1)
 
 # An approach that allow non-consecutive K days to hold all cash without any stocks
 def myAction02(priceMat, transFeeRate, K):
@@ -299,7 +318,28 @@ def myAction02(priceMat, transFeeRate, K):
 
     return actionMat
 
+# Use brute-force to find the K-day window to hold all cash without any stocks
+def myAction03BruteForce(priceMat, transFeeRate, K):
+    # user definition
+    dayNum, stockNum = priceMat.shape  # day size & stock count
+
+    bestActionMat = myActionForceCash(priceMat, transFeeRate, 0, K)
+    bestStartDay = 0
+
+    for day in range(1, dayNum):
+        if day+K >= dayNum:
+            break;
+
+        actionMat = myActionForceCash(priceMat, transFeeRate, day, K)
+
+        if actionMat[-1][3] > bestActionMat[-1][3]:
+            bestActionMat = actionMat
+            bestStartDay = day
+
+    print("bestStartDay %d" % (bestStartDay))
+
+    return bestActionMat
+
 # An approach that allow consecutive K days to hold all cash without any stocks    
 def myAction03(priceMat, transFeeRate, K):
-    actionMat = []  # An k-by-4 action matrix which holds k transaction records.
-    return actionMat
+    return myAction03BruteForce(priceMat, transFeeRate, K)
