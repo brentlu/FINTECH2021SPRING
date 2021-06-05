@@ -104,17 +104,9 @@ def myActionForceCash(priceMat, transFeeRate, cashStart, cashDays):
         dayPrices = priceMat[day]  # Today price of each stock
 
         for cashTo in range(0, stockNum+1):
-            if cashStart >= 0 and day >= cashStart and day < (cashStart+cashDays):
-                # forced to select cash today
-                buyIn = dp[day-1][stockNum]
-
-                if cashTo != stockNum:
-                    # buy new stock
-                    buyIn = buyIn*(1-transFeeRate)/dayPrices[cashTo]
-
-                if buyIn > dp[day][cashTo]:
-                    dp[day][cashTo] = buyIn
-                    bt[day][cashTo] = stockNum
+            if cashStart >= 0 and day >= cashStart and day < (cashStart+cashDays) and cashTo != stockNum:
+                dp[day][cashTo] = 0
+                bt[day][cashTo] = -1
             else:
                 for cashFrom in range(0, stockNum+1):
                     cashOutValue = dp[day-1][cashFrom]
@@ -167,7 +159,7 @@ def myActionForceCash(priceMat, transFeeRate, cashStart, cashDays):
 
         if prevHolding != stockNum and holding != prevHolding and prevHolding != -1:
             sellStock = prevHolding
-            transValue = dp[day][sellStock]*dayPrices[sellStock]
+            transValue = dp[day-1][sellStock]*dayPrices[sellStock]
 
         if sellStock != -1 or buyStock != -1:
             actionMat.append([day, sellStock, buyStock, transValue])
@@ -287,9 +279,9 @@ def myAction02(priceMat, transFeeRate, K):
         if prevHolding != stockNum and holding != prevHolding and prevHolding != -1:
             sellStock = prevHolding
             if holding == stockNum:
-                transValue = dp[cashDay-1][day][sellStock]*dayPrices[sellStock]
+                transValue = dp[cashDay-1][day-1][sellStock]*dayPrices[sellStock]
             else:
-                transValue = dp[cashDay][day][sellStock]*dayPrices[sellStock]
+                transValue = dp[cashDay][day-1][sellStock]*dayPrices[sellStock]
 
         if sellStock != -1 or buyStock != -1:
             actionMat.append([day, sellStock, buyStock, transValue])
